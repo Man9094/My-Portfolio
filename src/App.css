@@ -1,0 +1,69 @@
+/* Cinematic Black & Silver Responsive Styles */
+
+/* Base touch targets and interaction accessibility */
+a, button, input, textarea {
+  touch-action: manipulation;
+}
+
+/* Ensure general headings wrap naturally without word clipping */
+h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Priority 2: Signature Hero Title strictly stays on ONE line on every viewport */
+.portfolio-hero-title {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  display: inline-block;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+
+/* Responsive Navigation Breakpoint */
+@media (max-width: 860px) {
+  .desktop-nav {
+    display: none !important;
+  }
+
+  .mobile-toggle {
+    display: inline-flex !important;
+  }
+}
+
+/* Responsive Grids & Stacking */
+@media (max-width: 860px) {
+  .about-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-5) !important;
+  }
+
+  .home-intro-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-5) !important;
+    text-align: left !important;
+  }
+
+  .contact-layout-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-5) !important;
+  }
+}
+
+/* Touch targets and mobile comfortable tap sizing */
+@media (max-width: 640px) {
+  .mobile-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Short landscape screens (e.g. phones in landscape 640-840px wide by <= 500px high) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero-viewport-section {
+    min-height: 120vh !important;
+    padding-top: calc(var(--header-height) + 20px) !important;
+    padding-bottom: 2rem !important;
+  }
+}
