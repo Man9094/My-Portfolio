@@ -94,17 +94,28 @@ body {
   position: relative;
   background-color: var(--bg-deep);
   background: radial-gradient(circle at 50% 30%, #111116 0%, #070709 70%);
-  background-attachment: fixed;
   color: var(--silver-primary);
   line-height: 1.6;
 }
 
-/* Shared Container System */
+@media (min-width: 1024px) {
+  body {
+    background-attachment: fixed;
+  }
+}
+
+/* Shared Container System with notch & safe-area resilience */
 .page-container {
   width: 100%;
   max-width: var(--container-max);
   margin-inline: auto;
-  padding-inline: var(--page-gutter);
+  padding-left: calc(var(--page-gutter) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--page-gutter) + env(safe-area-inset-right, 0px));
+}
+
+/* Ensure mobile keyboards do not obscure focused form inputs */
+input, textarea, select {
+  scroll-margin-top: calc(var(--header-height) + 24px);
 }
 
 /* Readable prose text limits to ~65ch */

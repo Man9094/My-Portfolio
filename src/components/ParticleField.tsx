@@ -18,7 +18,14 @@ export const ParticleField = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationFrameId: number;
+    const prefersReducedMotion = typeof window !== 'undefined'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isMobile = typeof window !== 'undefined'
+      && (window.innerWidth < 768 || !window.matchMedia('(pointer: fine)').matches);
+
+    let animationFrameId: number | null = null;
+    let isSleeping = false;
+    let isVisible = true;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
@@ -29,8 +36,9 @@ export const ParticleField = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // Reel reference: dense luminous particulate galaxy in center-upper region + subtle ambient field
-    const totalCount = Math.min(140, Math.floor((width * height) / 10000));
+    // Particle density: 35 on mobile, up to 110 on desktop
+    const maxParticles = isMobile ? 35 : 110;
+    const totalCount = Math.min(maxParticles, Math.floor((width * height) / 12000));
     
     interface Particle {
       x: number;
@@ -53,7 +61,6 @@ export const ParticleField = ({
       let y: number;
 
       if (inCluster) {
-        // Gaussian-like concentration in upper-center (reel 06 reference)
         const angle = Math.random() * Math.PI * 2;
         const radius = (Math.random() ** 1.8) * Math.min(width, height) * 0.42;
         x = width * 0.5 + Math.cos(angle) * radius;
@@ -63,7 +70,7 @@ export const ParticleField = ({
         y = Math.random() * height;
       }
 
-      const size = Math.random() * 1.6 + 0.3;
+      const size = Math.random() * 1.5 + 0.3;
       const baseAlpha = inCluster ? Math.random() * 0.6 + 0.25 : Math.random() * 0.35 + 0.1;
 
       return {
@@ -84,8 +91,9 @@ export const ParticleField = ({
 
     let tick = 0;
     const render = () => {
-      if (document.hidden) {
-        animationFrameId = requestAnimationFrame(render);
+      if (document.hidden || !isVisible) {
+        isSleeping = true;
+        animationFrameId = null;
         return;
       }
 
@@ -107,13 +115,13 @@ export const ParticleField = ({
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Render individual silver particles
+      // Batched silver particles rendering in 3 alpha buckets
+      const buckets: Particle[][] = [[], [], []];
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         p.x += p.speedX;
         p.y += p.speedY;
 
-        // Wrap boundaries
         if (p.x < -20) p.x = width + 20;
         if (p.x > width + 20) p.x = -20;
         if (p.y < -20) p.y = height + 20;
@@ -121,22 +129,81 @@ export const ParticleField = ({
 
         const currentAlpha =
           p.baseAlpha + Math.sin(tick * p.pulseSpeed + p.pulseOffset) * 0.18;
-        const clampedAlpha = Math.max(0.04, Math.min(0.9, currentAlpha)) * opacity;
+        p.alpha = Math.max(0.04, Math.min(0.9, currentAlpha)) * opacity;
 
+        const b = p.alpha > 0.4 ? 0 : p.alpha > 0.2 ? 1 : 2;
+        buckets[b].push(p);
+      }
+
+      const bucketStyles = [
+        `rgba(240, 244, 250, ${0.55 * opacity})`,
+        `rgba(220, 230, 245, ${0.30 * opacity})`,
+        `rgba(200, 210, 230, ${0.12 * opacity})`,
+      ];
+
+      for (let b = 0; b < 3; b++) {
+        const list = buckets[b];
+        if (list.length === 0) continue;
+        ctx.fillStyle = bucketStyles[b];
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(240, 244, 250, ${clampedAlpha})`;
+        for (let j = 0; j < list.length; j++) {
+          const p = list[j];
+          ctx.moveTo(p.x + p.size, p.y);
+          ctx.arc(p.x, p.y, p.size, 0, 6.2831853);
+        }
         ctx.fill();
       }
 
-      animationFrameId = requestAnimationFrame(render);
+      if (!prefersReducedMotion) {
+        animationFrameId = requestAnimationFrame(render);
+      }
     };
+
+    const wake = () => {
+      if (isSleeping && !document.hidden && isVisible && !prefersReducedMotion) {
+        isSleeping = false;
+        if (!animationFrameId) {
+          animationFrameId = requestAnimationFrame(render);
+        }
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+        isSleeping = true;
+      } else {
+        wake();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const observer = new IntersectionObserver(([entry]) => {
+      isVisible = entry.isIntersecting;
+      if (entry.isIntersecting) {
+        wake();
+      } else {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+        isSleeping = true;
+      }
+    }, { threshold: 0.05 });
+    observer.observe(canvas);
 
     render();
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      observer.disconnect();
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
     };
   }, [opacity, speedMultiplier]);
 

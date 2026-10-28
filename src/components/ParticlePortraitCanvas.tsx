@@ -265,10 +265,20 @@ export const ParticlePortraitCanvas = ({
           img = await loadAndDecodeImage('/images/man-chaudhari.jpg');
         }
 
-        if (isCancelled) return;
-
-        const isMobile = typeof window !== 'undefined' && window.innerWidth < 860;
-        const particleBudget = isMobile ? 5800 : 8500;
+        const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const isTouch = typeof window !== 'undefined' && !window.matchMedia('(pointer: fine)').matches;
+        const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 4) : 4;
+        let particleBudget: number;
+        if (w < 600 || isTouch) {
+          particleBudget = 2800;
+        } else if (w < 1024) {
+          particleBudget = 4800;
+        } else {
+          particleBudget = 7500;
+        }
+        if (cores <= 4) {
+          particleBudget = Math.round(particleBudget * 0.8);
+        }
 
         const result = samplePortraitImage(img, particleBudget);
         if (isCancelled) return;
@@ -566,7 +576,9 @@ export const ParticlePortraitCanvas = ({
       const h = Math.round(rect.height);
       if (w === 0 || h === 0) return;
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Cap DPR to 1.0 on touch/mobile to eliminate fill-rate bottleneck; cap at 2.0 on desktop
+      const isTouch = typeof window !== 'undefined' && !window.matchMedia('(pointer: fine)').matches;
+      const dpr = isTouch ? 1.0 : Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       canvas.style.width = `${w}px`;
@@ -579,6 +591,7 @@ export const ParticlePortraitCanvas = ({
 
     handleResize();
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
 
     const ro = new ResizeObserver(() => {
       handleResize();
@@ -596,12 +609,50 @@ export const ParticlePortraitCanvas = ({
     );
     observer.observe(container);
 
+    // Visibility change: pause simulation when tab is in background
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        loopRef.current.isSleeping = true;
+        if (loopRef.current.animFrame) {
+          cancelAnimationFrame(loopRef.current.animFrame);
+          loopRef.current.animFrame = null;
+        }
+      } else {
+        if (loopRef.current.isVisible) {
+          wakeLoop();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Canvas context loss handling: prevent default and show static fallback if context cannot recover
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      setLoadFailed(true);
+      if (loopRef.current.animFrame) {
+        cancelAnimationFrame(loopRef.current.animFrame);
+        loopRef.current.animFrame = null;
+      }
+    };
+
+    const handleContextRestored = () => {
+      setLoadFailed(false);
+      handleResize();
+    };
+
+    canvas.addEventListener('contextlost', handleContextLost);
+    canvas.addEventListener('contextrestored', handleContextRestored);
+
     loopRef.current.lastTime = 0;
     loopRef.current.animFrame = requestAnimationFrame((t) => renderFrameRef.current(t));
 
     const loop = loopRef.current;
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      canvas.removeEventListener('contextlost', handleContextLost);
+      canvas.removeEventListener('contextrestored', handleContextRestored);
       ro.disconnect();
       observer.disconnect();
       if (loop.animFrame) {

@@ -27,12 +27,22 @@ export const CustomCursor = () => {
     const finePointerQuery = window.matchMedia('(pointer: fine)');
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+    const isFine = finePointerQuery.matches && !reducedMotionQuery.matches;
+
     const updateEnabled = () => {
-      setEnabled(finePointerQuery.matches && !reducedMotionQuery.matches);
+      const active = finePointerQuery.matches && !reducedMotionQuery.matches;
+      setEnabled(active);
     };
 
     finePointerQuery.addEventListener('change', updateEnabled);
     reducedMotionQuery.addEventListener('change', updateEnabled);
+
+    if (!isFine) {
+      return () => {
+        finePointerQuery.removeEventListener('change', updateEnabled);
+        reducedMotionQuery.removeEventListener('change', updateEnabled);
+      };
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       cursorX.set(e.clientX);

@@ -51,6 +51,13 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Hero viewport container fluid height and native vertical pan scrolling */
+.hero-viewport-section {
+  min-height: 100vh;
+  min-height: 100dvh;
+  touch-action: pan-y;
+}
+
 /* Touch targets and mobile comfortable tap sizing */
 @media (max-width: 640px) {
   .mobile-toggle {
@@ -59,11 +66,22 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Short landscape screens (e.g. phones in landscape 640-840px wide by <= 500px high) */
-@media (max-height: 500px) and (orientation: landscape) {
+/* Mobile performance optimizations: simplify expensive blur filters and heavy shadow layers */
+@media (max-width: 860px) {
+  .mobile-light-blur {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+}
+
+/* Short landscape screens (e.g. phones in landscape 640-920px wide by <= 540px high) */
+@media (max-height: 540px) and (orientation: landscape) {
   .hero-viewport-section {
-    min-height: 120vh !important;
-    padding-top: calc(var(--header-height) + 20px) !important;
+    min-height: 135vh !important;
+    min-height: 135dvh !important;
+    padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0px) + 16px) !important;
     padding-bottom: 2rem !important;
   }
 }
+
+

@@ -13,6 +13,8 @@ export type IntroStage = 'dot' | 'name' | 'hold' | 'morph' | 'settle' | 'hero';
 export const HomePage = () => {
   const prefersReducedMotion = typeof window !== 'undefined'
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isFinePointer = typeof window !== 'undefined'
+    && window.matchMedia('(pointer: fine)').matches;
 
   const { setCursorVariant, resetCursor } = useCursor();
 
@@ -135,6 +137,7 @@ export const HomePage = () => {
 
   const handleHeroMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (stage !== 'hero' || prefersReducedMotion) return;
+    if (typeof window !== 'undefined' && !window.matchMedia('(pointer: fine)').matches) return;
     const rect = e.currentTarget.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
 
@@ -160,16 +163,25 @@ export const HomePage = () => {
     particleApiRef.current?.wake();
   };
 
-  // Auto-fitting single-line PORTFOLIO title sizing
+  // Auto-fitting single-line title sizing for both PORTFOLIO and MAN CHAUDHARI
   const titleContainerRef = useRef<HTMLDivElement | null>(null);
   const measureRulerRef = useRef<HTMLSpanElement | null>(null);
+  const measureNameRulerRef = useRef<HTMLSpanElement | null>(null);
 
   const [titleFontSize, setTitleFontSize] = useState<number>(() => {
     if (typeof window === 'undefined') return 64;
     const w = window.innerWidth;
-    if (w < 400) return 42;
-    if (w < 860) return 58;
+    if (w < 400) return 38;
+    if (w < 860) return 56;
     return 108;
+  });
+
+  const [nameFontSize, setNameFontSize] = useState<number>(() => {
+    if (typeof window === 'undefined') return 48;
+    const w = window.innerWidth;
+    if (w < 400) return 24;
+    if (w < 860) return 38;
+    return 68;
   });
 
   const calculateTitleFontSize = useCallback(() => {
@@ -194,14 +206,31 @@ export const HomePage = () => {
       targetWidth = Math.min(availWidth * 0.56, 800);
     }
 
-    let optimal = targetWidth / pxPerPx;
+    let optimalTitle = targetWidth / pxPerPx;
     if (!isMobile) {
-      optimal = Math.min(optimal, 122);
+      optimalTitle = Math.min(optimalTitle, 122);
     } else {
-      optimal = Math.min(optimal, 70);
+      optimalTitle = Math.min(optimalTitle, 70);
     }
+    optimalTitle = Math.max(optimalTitle, 26);
+    setTitleFontSize(Math.round(optimalTitle * 10) / 10);
 
-    setTitleFontSize(Math.round(optimal * 10) / 10);
+    // Measure and size MAN CHAUDHARI
+    const nameRuler = measureNameRulerRef.current;
+    if (nameRuler) {
+      const nameRulerWidth = nameRuler.offsetWidth;
+      if (nameRulerWidth > 0) {
+        const namePxPerPx = nameRulerWidth / 100;
+        let optimalName = targetWidth / namePxPerPx;
+        if (!isMobile) {
+          optimalName = Math.min(optimalName, 76);
+        } else {
+          optimalName = Math.min(optimalName, 50);
+        }
+        optimalName = Math.max(optimalName, 18);
+        setNameFontSize(Math.round(optimalName * 10) / 10);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -222,9 +251,11 @@ export const HomePage = () => {
     ro.observe(container);
 
     window.addEventListener('resize', calculateTitleFontSize);
+    window.addEventListener('orientationchange', calculateTitleFontSize);
     return () => {
       ro.disconnect();
       window.removeEventListener('resize', calculateTitleFontSize);
+      window.removeEventListener('orientationchange', calculateTitleFontSize);
     };
   }, [calculateTitleFontSize]);
 
@@ -251,7 +282,9 @@ export const HomePage = () => {
             hasExitedHeroRef.current = false;
             if (stage === 'hero') {
               setHeroReentryKey((k) => k + 1);
-              particleApiRef.current?.disperseForReentry();
+              if (isFinePointer) {
+                particleApiRef.current?.disperseForReentry();
+              }
             }
           }
         }
@@ -261,7 +294,7 @@ export const HomePage = () => {
 
     observer.observe(heroEl);
     return () => observer.disconnect();
-  }, [stage]);
+  }, [stage, isFinePointer]);
 
   // 3D Scroll Depth Sequence (bound directly via useTransform, no React state updates)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -282,7 +315,6 @@ export const HomePage = () => {
   const featuredProject = PORTFOLIO_CONFIG.projects[0];
   const nameChars = 'MAN CHAUDHARI'.split('');
   const portfolioChars = 'PORTFOLIO'.split('');
-  const nameFontSize = Math.min(Math.round(titleFontSize * 0.72), 76);
 
   return (
     <div
@@ -314,6 +346,27 @@ export const HomePage = () => {
         }}
       >
         PORTFOLIO
+      </span>
+
+      {/* Offscreen ruler measuring exact font width of MAN CHAUDHARI */}
+      <span
+        ref={measureNameRulerRef}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: -9999,
+          left: -9999,
+          visibility: 'hidden',
+          whiteSpace: 'nowrap',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 900,
+          fontSize: '100px',
+          letterSpacing: '-0.03em',
+          textTransform: 'uppercase',
+          pointerEvents: 'none',
+        }}
+      >
+        MAN CHAUDHARI
       </span>
 
       {/* Skip Intro Button (positioned cleanly below fixed header, zIndex 45) */}
@@ -391,8 +444,8 @@ export const HomePage = () => {
           apiRef={particleApiRef}
         />
 
-        {/* Soft silver spotlight background */}
-        {!prefersReducedMotion && stage === 'hero' && (
+        {/* Soft silver spotlight background (desktop only) */}
+        {!prefersReducedMotion && isFinePointer && stage === 'hero' && (
           <motion.div
             style={{
               position: 'absolute',
@@ -413,18 +466,18 @@ export const HomePage = () => {
           {/* Scroll Depth Layer */}
           <motion.div
             style={{
-              transformStyle: 'preserve-3d',
-              z: prefersReducedMotion ? 0 : scrollZ,
+              transformStyle: isFinePointer && !prefersReducedMotion ? 'preserve-3d' : 'flat',
+              z: prefersReducedMotion || !isFinePointer ? 0 : scrollZ,
               scale: prefersReducedMotion ? 1 : scrollScale,
               opacity: prefersReducedMotion ? 1 : scrollOpacity,
             }}
           >
-            {/* Cursor-driven perspective tilt */}
+            {/* Cursor-driven perspective tilt (desktop only) */}
             <motion.div
               style={{
-                transformStyle: 'preserve-3d',
-                rotateX: stage === 'hero' && !prefersReducedMotion ? headingTiltX : 0,
-                rotateY: stage === 'hero' && !prefersReducedMotion ? headingTiltY : 0,
+                transformStyle: isFinePointer && !prefersReducedMotion ? 'preserve-3d' : 'flat',
+                rotateX: stage === 'hero' && !prefersReducedMotion && isFinePointer ? headingTiltX : 0,
+                rotateY: stage === 'hero' && !prefersReducedMotion && isFinePointer ? headingTiltY : 0,
               }}
             >
               {/* Title Stage Area: Holds intro sequence and final PORTFOLIO heading without layout shifts */}
@@ -669,8 +722,8 @@ export const HomePage = () => {
               }}
               transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
               style={{
-                x: stage === 'hero' && !prefersReducedMotion ? decoOffsetX : 0,
-                y: stage === 'hero' && !prefersReducedMotion ? decoOffsetY : 0,
+                x: stage === 'hero' && !prefersReducedMotion && isFinePointer ? decoOffsetX : 0,
+                y: stage === 'hero' && !prefersReducedMotion && isFinePointer ? decoOffsetY : 0,
                 marginTop: '1.25rem',
                 fontSize: 'clamp(0.85rem, 1.4vw, 1.15rem)',
                 fontFamily: 'var(--font-mono)',
@@ -775,11 +828,11 @@ export const HomePage = () => {
 
             <motion.div
               style={{
-                rotateX: prefersReducedMotion ? 0 : cardRotateX,
+                rotateX: prefersReducedMotion || !isFinePointer ? 0 : cardRotateX,
                 scale: prefersReducedMotion ? 1 : cardScale,
                 opacity: prefersReducedMotion ? 1 : cardOpacity,
                 y: prefersReducedMotion ? 0 : cardY,
-                transformStyle: 'preserve-3d',
+                transformStyle: isFinePointer && !prefersReducedMotion ? 'preserve-3d' : 'flat',
               }}
             >
               <Link
@@ -789,6 +842,7 @@ export const HomePage = () => {
                 onMouseLeave={() => resetCursor()}
               >
                 <div
+                  className="mobile-light-blur"
                   style={{
                     backgroundColor: 'rgba(18, 18, 22, 0.75)',
                     backdropFilter: 'blur(20px)',

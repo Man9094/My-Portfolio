@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X } from 'lucide-react';
@@ -7,6 +7,7 @@ import { PORTFOLIO_CONFIG } from '../config/content';
 export const Navigation = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -16,6 +17,19 @@ export const Navigation = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Keyboard accessibility: Escape closes mobile drawer and returns focus to toggle
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileOpen(false);
+        toggleRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileOpen]);
 
   const navItems = [
     { path: '/', label: 'Home' },
@@ -51,6 +65,8 @@ export const Navigation = () => {
         right: 0,
         zIndex: 50,
         paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
         backgroundColor: scrolled || mobileOpen ? 'rgba(7, 7, 9, 0.94)' : 'rgba(7, 7, 9, 0.55)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
@@ -127,6 +143,7 @@ export const Navigation = () => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   textDecoration: 'none',
+                  minHeight: '44px',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
                 onMouseLeave={(e) => {
@@ -153,13 +170,15 @@ export const Navigation = () => {
               </Link>
             );
           })}
-
         </nav>
 
         {/* Mobile Menu Hamburger Toggle (44x44px touch target) */}
         <button
+          ref={toggleRef}
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle navigation menu"
+          aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav-drawer"
           className="mobile-toggle"
           style={{
             display: 'none',
@@ -182,6 +201,10 @@ export const Navigation = () => {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
+            id="mobile-nav-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mobile Navigation"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -191,11 +214,14 @@ export const Navigation = () => {
               top: 'calc(var(--header-height) + env(safe-area-inset-top, 0px))',
               left: 0,
               right: 0,
+              maxHeight: 'calc(100dvh - var(--header-height) - env(safe-area-inset-top, 0px))',
+              overflowY: 'auto',
               backgroundColor: 'rgba(10, 10, 14, 0.98)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
               borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
               paddingBlock: 'var(--space-5)',
+              paddingBottom: 'calc(var(--space-6) + env(safe-area-inset-bottom, 0px))',
               zIndex: 49,
               boxShadow: '0 24px 48px rgba(0, 0, 0, 0.95)',
             }}
@@ -240,7 +266,6 @@ export const Navigation = () => {
                   </Link>
                 );
               })}
-
             </div>
           </motion.div>
         )}

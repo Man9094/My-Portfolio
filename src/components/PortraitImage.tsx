@@ -16,7 +16,13 @@ export const PortraitImage = ({
   const { portraitPath, portraitPosition, monogram, name } = PORTFOLIO_CONFIG.personal;
   const [imageFailed, setImageFailed] = useState(false);
 
-  // 3D Pointer-Based Perspective Tilt (Restrained max 3.5 deg)
+  const isFinePointer = typeof window !== 'undefined'
+    && window.matchMedia('(pointer: fine)').matches;
+  const isReducedMotion = typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const activeTilt = enableTilt && isFinePointer && !isReducedMotion;
+
+  // 3D Pointer-Based Perspective Tilt (Desktop fine-pointer only)
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
@@ -32,7 +38,7 @@ export const PortraitImage = ({
   const sheenY = useTransform(mouseYSpring, [-0.5, 0.5], ['0%', '100%']);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!enableTilt) return;
+    if (!activeTilt) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
@@ -44,6 +50,7 @@ export const PortraitImage = ({
   };
 
   const handleMouseLeave = () => {
+    if (!activeTilt) return;
     x.set(0);
     y.set(0);
   };
@@ -84,9 +91,9 @@ export const PortraitImage = ({
           backgroundColor: '#0d0d11',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-          rotateX: enableTilt ? rotateX : 0,
-          rotateY: enableTilt ? rotateY : 0,
-          transformStyle: 'preserve-3d',
+          rotateX: activeTilt ? rotateX : 0,
+          rotateY: activeTilt ? rotateY : 0,
+          transformStyle: activeTilt ? 'preserve-3d' : 'flat',
         }}
       >
         {!imageFailed ? (
@@ -94,8 +101,8 @@ export const PortraitImage = ({
             style={{
               width: '100%',
               height: '100%',
-              x: enableTilt ? innerX : 0,
-              y: enableTilt ? innerY : 0,
+              x: activeTilt ? innerX : 0,
+              y: activeTilt ? innerY : 0,
             }}
           >
             <img
